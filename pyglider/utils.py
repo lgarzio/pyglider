@@ -1,5 +1,7 @@
 """
 Utilities that are used for processing scripts.
+Modified by Lori Garzio 5/19/2025
+Last Modified 6/9/2025
 """
 
 import collections
@@ -85,7 +87,7 @@ def get_glider_depth(ds):
         'long_name': 'glider depth',
         'standard_name': 'depth',
         'units': 'm',
-        'comment': 'from science pressure and interpolated',
+        'comment': 'calculated from sci_water_pressure and interpolated',
         'instrument': 'instrument_ctd',
         'observation_type': 'calulated',
         'accuracy': 1.0,
@@ -194,92 +196,136 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
     pronum = 1
 
     good = np.where(np.isfinite(ds.pressure))[0]
-    dt = float(
-        np.median(np.diff(ds.time.values[good[:200000]]).astype(np.float64)) * 1e-9
-    )
-    _log.info(f'dt, {dt}')
-    filt_length = int(filt_time / dt)
 
-    min_nsamples = int(profile_min_time / dt)
-    _log.info('Filt Len  %d, dt %f, min_n %d', filt_length, dt, min_nsamples)
-    if filt_length > 1:
-        p = np.convolve(
-            ds.pressure.values[good], np.ones(filt_length) / filt_length, 'same'
-        )
-    else:
-        p = ds.pressure.values[good]
-    decim = int(filt_length / 3)
-    if decim < 2:
-        decim = 2
-    # why?  because argrelextrema doesn't like repeated values, so smooth
-    # then decimate to get fewer values:
-    pp = p[::decim]
-    maxs = argrelextrema(pp, np.greater)[0]
-    mins = argrelextrema(pp, np.less)[0]
-    mins = good[mins * decim]
-    maxs = good[maxs * decim]
-    if mins[0] > maxs[0]:
-        mins = np.concatenate(([0], mins))
-    if mins[-1] < maxs[-1]:
-        mins = np.concatenate((mins, good[[-1]]))
+    # if pressure is all nan or the pressure change is < min_dp, profile id is zero
+    if np.logical_or(len(good) == 0, np.nanmax(ds.pressure.values) - np.nanmin(ds.pressure.values) < min_dp):
+        profile.fill(0)
+        direction.fill(0)
 
-    _log.debug(f'mins: {len(mins)} {mins} , maxs: {len(maxs)} {maxs}')
-
-    pronum = 0
-    p = ds.pressure
-    nmin = 0
-    nmax = 0
-    while (nmin < len(mins)) and (nmax < len(maxs)):
-        nmax = np.where(maxs > mins[nmin])[0]
-        if len(nmax) >= 1:
-            nmax = nmax[0]
-        else:
-            break
-        _log.debug(nmax)
-        ins = range(int(mins[nmin]), int(maxs[nmax] + 1))
-        _log.debug(f'{pronum}, {ins}, {len(p)}, {mins[nmin]}, {maxs[nmax]}')
-        _log.debug(f'Down, {ins}, {p[ins[0]].values},{p[ins[-1]].values}')
-        if (len(ins) > min_nsamples) and (
-            np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
-        ):
-            profile[ins] = pronum
-            direction[ins] = +1
-            pronum += 1
-        nmin = np.where(mins > maxs[nmax])[0]
-        if len(nmin) >= 1:
-            nmin = nmin[0]
-        else:
-            break
-        ins = range(maxs[nmax], mins[nmin])
-        _log.debug(f'{pronum}, {ins}, {len(p)}, {mins[nmin]}, {maxs[nmax]}')
-        _log.debug(f'Up, {ins}, {p[ins[0]].values}, {p[ins[-1]].values}')
-        if (len(ins) > min_nsamples) and (
-            np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
-        ):
-            # up
-            profile[ins] = pronum
-            direction[ins] = -1
-            pronum += 1
-
-    attrs = collections.OrderedDict(
+        attrs = collections.OrderedDict(
         [
             ('long_name', 'profile index'),
             ('units', '1'),
-            ('comment', 'N = inside profile N, N + 0.5 = between profiles N and N + 1'),
+            ('comment', 'Unique identifier of the profile, the mean profile timestamp'),
             ('sources', 'time pressure'),
             ('method', 'get_profiles_new'),
-            ('min_dp', min_dp),
-            ('filt_length', filt_length),
-            ('min_nsamples', min_nsamples),
         ]
     )
+    else:  # otherwise, index profiles
+        # dt = float(
+        #     np.median(np.diff(ds.time.values[good[:200000]]).astype(np.float64)) * 1e-9
+        # )
+        # Lori: convert timestamps
+        tm = ds.time.values.astype('timedelta64[s]') + np.datetime64('1970-01-01T00:00:00').astype('datetime64[ns]')
+        dt = float(
+            np.median(np.diff(tm[good[:200000]]).astype(np.float64)) * 1e-9
+        )
+        _log.info(f'dt, {dt}')
+        filt_length = int(filt_time / dt)
+
+        min_nsamples = int(profile_min_time / dt)
+        _log.info('Filt Len  %d, dt %f, min_n %d', filt_length, dt, min_nsamples)
+        if filt_length > 1:
+            p = np.convolve(
+                ds.pressure.values[good], np.ones(filt_length) / filt_length, 'same'
+            )
+        else:
+            p = ds.pressure.values[good]
+        decim = int(filt_length / 3)
+        if decim < 2:
+            decim = 2
+        # why?  because argrelextrema doesn't like repeated values, so smooth
+        # then decimate to get fewer values:
+        pp = p[::decim]
+        maxs = argrelextrema(pp, np.greater)[0]
+        mins = argrelextrema(pp, np.less)[0]
+        mins = good[mins * decim]
+        maxs = good[maxs * decim]
+        if np.logical_and(len(mins) == 0, len(maxs) > 0):
+            # if there are no minima, but there are maxima, assume the profile starts at index=0
+            mins = np.concatenate(([0], mins))
+        if mins[0] > maxs[0]:
+            mins = np.concatenate(([0], mins))
+        if mins[-1] < maxs[-1]:
+            #mins = np.concatenate((mins, good[[-1]]))
+            mins = np.concatenate((mins, [len(ds.time)]))  # extend to the end of the time series, rather than the last valid pressure reading
+
+        _log.debug(f'mins: {len(mins)} {mins} , maxs: {len(maxs)} {maxs}')
+
+        pronum = 0
+        p = ds.pressure
+        nmin = 0
+        nmax = 0
+        while (nmin < len(mins)) and (nmax < len(maxs)):
+            nmax = np.where(maxs > mins[nmin])[0]
+            if len(nmax) >= 1:
+                nmax = nmax[0]
+            else:
+                break
+            _log.debug(nmax)
+            ins = range(int(mins[nmin]), int(maxs[nmax] + 1))
+            _log.debug(f'{pronum}, {ins}, {len(p)}, {mins[nmin]}, {maxs[nmax]}')
+            _log.debug(f'Down, {ins}, {p[ins[0]].values},{p[ins[-1]].values}')
+            if (len(ins) > min_nsamples) and (
+                np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
+            ):
+                # Lori: profile ID is mean timestamp
+                profile[ins] = np.nanmean(ds.time.values[ins])  # profile[ins] = pronum
+                direction[ins] = +1
+                pronum += 1
+            nmin = np.where(mins > maxs[nmax])[0]
+            if len(nmin) >= 1:
+                nmin = nmin[0]
+            else:
+                break
+            ins = range(maxs[nmax], mins[nmin])
+            _log.debug(f'{pronum}, {ins}, {len(p)}, {mins[nmin]}, {maxs[nmax]}')
+            _log.debug(f'Up, {ins}, {p[ins[0]].values}, {p[ins[-1]].values}')
+            if (len(ins) > min_nsamples) and (
+                np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
+            ):
+                # up
+                # Lori: profile ID is mean timestamp
+                profile[ins] = np.nanmean(ds.time.values[ins])  # profile[ins] = pronum
+                direction[ins] = -1
+                pronum += 1
+
+        # added by Lori
+        # if the unique profile id is 0 (no profiles were indexed), make sure everything equals zero (remove nans)
+        unique_profileid = np.unique(profile[~np.isnan(profile)])
+        if np.array_equal(unique_profileid, [0]):
+            profile.fill(0)
+            direction.fill(0)
+        else:
+            # otherwise, index where the glider is floating at the surface and assign that profile id 0
+            surface_idx = np.where(np.abs(ds.depth.values) < 0.5)[0]
+            consecutive_groups = np.split(surface_idx, np.where(np.diff(surface_idx) != 1)[0] + 1)
+            for cg in consecutive_groups:
+                profile[cg] = 0
+                direction[cg] = 0
+    
+        attrs = collections.OrderedDict(
+            [
+                ('long_name', 'profile index'),
+                ('units', '1'),
+                #('comment', 'N = inside profile N, N + 0.5 = between profiles N and N + 1'),
+                ('comment', 'Unique identifier of the profile, the mean profile timestamp'),
+                ('sources', 'time pressure'),
+                ('method', 'get_profiles_new'),
+                ('min_dp', min_dp),
+                ('filt_length', filt_length),
+                ('min_nsamples', min_nsamples),
+            ]
+        )
+    
     ds['profile_index'] = (('time'), profile, attrs)
 
     attrs = collections.OrderedDict(
         [
             ('long_name', 'glider vertical speed direction'),
             ('units', '1'),
-            ('comment', '-1 = ascending, 0 = inflecting or stalled, 1 = descending'),
+            #('comment', '-1 = ascending, 0 = inflecting or stalled, 1 = descending'),
+            ('comment', '-1 = ascending, 0 = hovering or floating at surface, 1 = descending'),
             ('sources', 'time pressure'),
             ('method', 'get_profiles_new'),
         ]
