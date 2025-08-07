@@ -1,7 +1,7 @@
 """
 Routines to convert raw slocum dinkum files to netcdf timeseries.
 Modified by Lori Garzio 5/19/2025
-Last Modified 6/9/2025
+Last Modified 8/7/2025
 """
 
 from datetime import datetime, timezone
@@ -112,8 +112,11 @@ def binary_to_rawnc(
             try:
                 fmeta, _ = dbd_get_meta(filen, cachedir=cacdir)
                 path, ext = os.path.splitext(filen)
+                # fncname = (
+                #     fmeta['the8x3_filename'] + '.' + fmeta['filename_extension'] + '.nc'
+                # )
                 fncname = (
-                    fmeta['the8x3_filename'] + '.' + fmeta['filename_extension'] + '.nc'
+                    fmeta['full_filename'] + '.' + fmeta['filename_extension'] + '.nc'
                 )
                 fullfncname = outdir + '/' + fncname
 
@@ -831,13 +834,13 @@ def raw_to_timeseries(
     return outname
 
 
-def raw_trajectory_to_timeseries(
-    indir, outdir, deploymentyaml, logging, *, profile_filt_time=100, profile_min_time=300, trajectory=None
+def raw_segment_to_timeseries(
+    indir, outdir, deploymentyaml, logging, *, profile_filt_time=100, profile_min_time=300, segment=None
 ):
     """
     **Lori edit:**
     This is a copy of the raw_to_timeseries function, but it
-    creates a merged .nc file for each debd.nc pair (trajectory) rather than
+    creates a merged .nc file for each debd.nc pair (segment) rather than
     a single merged file for the entire deployment.
     Parameters
     ----------
@@ -853,8 +856,8 @@ def raw_trajectory_to_timeseries(
         minimum time to consider a profile an actual profile (seconds)
     logging : object
         logging object to use for logging messages.
-    trajectory : string
-        The trajectory ID
+    segment : string
+        The segment ID
     Returns
     -------
     outname : string
@@ -894,43 +897,43 @@ def raw_trajectory_to_timeseries(
     else:
         logging.error(f'Invalid mode: {outdir.split("/")[-1]} in {outdir}. Must be "delayed" or "rt".')
         return
-    ebdn = os.path.join(indir, trajectory + f'.{scisuffix}.nc')  # science
-    dbdn = os.path.join(indir, trajectory + f'.{glidersuffix}.nc')  # flight
+    ebdn = os.path.join(indir, segment + f'.{scisuffix}.nc')  # science
+    dbdn = os.path.join(indir, segment + f'.{glidersuffix}.nc')  # flight
 
-    logging.info(f'Attempting to merge {trajectory + f'.{glidersuffix}.nc'} and {trajectory + f'.{scisuffix}.nc'} files')
+    logging.info(f'Attempting to merge {segment + f'.{glidersuffix}.nc'} and {segment + f'.{scisuffix}.nc'} files')
 
     try:
         ebd = xr.open_dataset(ebdn, decode_times=False)
         if len(ebd['_ind']) == 0:
             ebd = None
-            logging.info(f'EBD (science) file for {trajectory} is empty')
+            logging.info(f'EBD (science) file for {segment} is empty')
     except FileNotFoundError:
         ebd = None
-        logging.info(f'EBD (science) file not available for {trajectory}')
+        logging.info(f'EBD (science) file not available for {segment}')
     try:
         dbd = xr.open_dataset(dbdn, decode_times=False)
         if len(dbd['_ind']) == 0:
             dbd = None
-            logging.info(f'DBD (flight) file for {trajectory} is empty')
+            logging.info(f'DBD (flight) file for {segment} is empty')
     except FileNotFoundError:
         dbd = None
-        logging.info(f'DBD (flight) file not available for {trajectory}')
+        logging.info(f'DBD (flight) file not available for {segment}')
 
     # check for data points before proceeding to generating files
     if np.logical_and(ebd is None, dbd is None):
-        logging.info(f'No data available for {trajectory}, skipping file creation')
+        logging.info(f'No data available for {segment}, skipping file creation')
         return
 
     try:
         if np.logical_and(ebd is None, len(dbd['_ind']) < 2):
-            logging.info(f'Only {len(dbd['_ind'])} data point for segment {trajectory}, skipping file')
+            logging.info(f'Only {len(dbd['_ind'])} data points for segment {segment}, skipping file')
             return
     except TypeError:
         pass
 
     try:
         if np.logical_and(len(ebd['_ind']) < 2, dbd is None):
-            logging.info(f'Only {len(ebd['_ind'])} data point for segment {trajectory}, skipping file')
+            logging.info(f'Only {len(ebd['_ind'])} data point for segment {segment}, skipping file')
             return
     except TypeError:
         pass
@@ -994,9 +997,9 @@ def raw_trajectory_to_timeseries(
                 dd = convert(dbd[sensorname])
                 dd = dd[~np.isnan(dd)]
                 if len(dd) == 0:  # exit if there are no GPS hits and don't write the .nc file
-                    logging.info(f'No GPS hits for segment {trajectory}, skipping file: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
+                    logging.info(f'No GPS hits for segment {segment}, skipping file: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
                     return
-                logging.info(f'Single GPS hit for segment {trajectory} ({name}), repeating coordinates instead of interpolating: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
+                logging.info(f'Single GPS hit for segment {segment} ({name}), repeating coordinates instead of interpolating: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
                 val[:] = dd.values
                 
         # make the attributes:
@@ -1012,7 +1015,7 @@ def raw_trajectory_to_timeseries(
 
     # don't print the file if there is <2 data points
     if len(ds.time) < 2:
-        logging.info(f'Only {len(ds.time)} data point for segment {trajectory}, skipping file')
+        logging.info(f'Only {len(ds.time)} data point for segment {segment}, skipping file')
         return
     ds = utils.get_glider_depth(ds)
     ds = utils.get_distance_over_ground(ds)
@@ -1052,7 +1055,7 @@ def raw_trajectory_to_timeseries(
     except:
         pass
     # outname = outdir + '/' + ds.attrs['deployment_name'] + '.nc'
-    outname = os.path.join(outdir, trajectory + '.nc')
+    outname = os.path.join(outdir, segment + '.nc')
     #_log.info('writing %s', outname)
     logging.info(f'Writing {outname}')
     ds.to_netcdf(
@@ -1062,7 +1065,7 @@ def raw_trajectory_to_timeseries(
         id0 = ds.attrs['deployment_name']
     
     # for testing
-    outcsv = os.path.join(outdir, trajectory + '.csv')
+    outcsv = os.path.join(outdir, segment + '.csv')
     ds.to_dataframe().to_csv(outcsv)
 
     return outname
