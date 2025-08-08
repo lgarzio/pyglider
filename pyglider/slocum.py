@@ -923,17 +923,13 @@ def raw_segment_to_timeseries(
     if np.logical_and(ebd is None, dbd is None):
         logging.info(f'No data available for {segment}, skipping file creation')
         return
+    if dbd is None:
+        logging.info(f'Flight data not available for segment {segment}, skipping file')
+        return
 
     try:
         if np.logical_and(ebd is None, len(dbd['_ind']) < 2):
             logging.info(f'Only {len(dbd['_ind'])} data points for segment {segment}, skipping file')
-            return
-    except TypeError:
-        pass
-
-    try:
-        if np.logical_and(len(ebd['_ind']) < 2, dbd is None):
-            logging.info(f'Only {len(ebd['_ind'])} data point for segment {segment}, skipping file')
             return
     except TypeError:
         pass
