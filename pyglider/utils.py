@@ -269,10 +269,19 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
             if (len(ins) > min_nsamples) and (
                 np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
             ):
+                # downcast
                 # Lori: profile ID is mean timestamp
                 profile[ins] = np.nanmean(ds.time.values[ins])  # profile[ins] = pronum
                 direction[ins] = +1
                 pronum += 1
+            
+                # find depths < 0.1 and assign those profile ID 0
+                # these are downcasts so find the last instance and set everything before that to zero
+                if np.sum(p[ins] < 0.1) > 0:
+                    ins = range(ins[0], ins[0] + np.max(np.where(p[ins] < 0.1)[0]))
+                    profile[ins] = 0
+                    direction[ins] = 0
+
             else:  # glider is hovering
                 profile[ins] = 0
                 direction[ins] = 0
@@ -288,28 +297,38 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
             if (len(ins) > min_nsamples) and (
                 np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
             ):
-                # up
+                # upcast
                 # Lori: profile ID is mean timestamp
                 profile[ins] = np.nanmean(ds.time.values[ins])  # profile[ins] = pronum
                 direction[ins] = -1
                 pronum += 1
+
+                # find depths < 0.1 and assign those profile ID 0
+                # these are upcasts so find the first instance and set everything after that to zero
+                if np.sum(p[ins] < 0.1) > 0:
+                    ins = range(ins[0] + np.min(np.where(p[ins] < 0.1)[0]), ins[-1] + 1)
+                    profile[ins] = 0
+                    direction[ins] = 0
+
             else:  # glider is hovering
                 profile[ins] = 0
                 direction[ins] = 0
 
-        # added by Lori
-        # if the unique profile id is 0 (no profiles were indexed), make sure everything equals zero (remove nans)
-        unique_profileid = np.unique(profile[~np.isnan(profile)])
-        if np.array_equal(unique_profileid, [0]):
-            profile.fill(0)
-            direction.fill(0)
-        else:
-            # otherwise, index where the glider is floating at the surface and assign that profile id 0
-            surface_idx = np.where(np.abs(ds.depth.values) < 0.5)[0]
-            consecutive_groups = np.split(surface_idx, np.where(np.diff(surface_idx) != 1)[0] + 1)
-            for cg in consecutive_groups:
-                profile[cg] = 0
-                direction[cg] = 0
+        # # added by Lori
+        # # if the unique profile id is 0 (no profiles were indexed), make sure everything equals zero (remove nans)
+        # unique_profileid = np.unique(profile[~np.isnan(profile)])
+        # if np.array_equal(unique_profileid, [0]):
+        #     profile.fill(0)
+        #     direction.fill(0)
+        # else:
+        #     # otherwise, index where the glider is floating at the surface and assign that profile id 0
+        #     surface_idx = np.where(ds.depth.values < 0.2)[0]
+        #     profile[surface_idx] = 0
+        #     direction[surface_idx] = 0
+        
+        # if there is anything leftover that wasn't indexed, assign those zero
+        profile[np.where(np.isnan(profile))[0]] = 0
+        direction[np.where(np.isnan(direction))[0]] = 0
     
         attrs = collections.OrderedDict(
             [
