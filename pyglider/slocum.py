@@ -906,18 +906,18 @@ def raw_segment_to_timeseries(
         ebd = xr.open_dataset(ebdn, decode_times=False)
         if len(ebd['_ind']) == 0:
             ebd = None
-            logging.info(f'EBD (science) file for {segment} is empty')
+            logging.info(f'{scisuffix.upper()} (science) file for {segment} is empty')
     except FileNotFoundError:
         ebd = None
-        logging.info(f'EBD (science) file not available for {segment}')
+        logging.info(f'{scisuffix.upper()} (science) file not available for {segment}')
     try:
         dbd = xr.open_dataset(dbdn, decode_times=False)
         if len(dbd['_ind']) == 0:
             dbd = None
-            logging.info(f'DBD (flight) file for {segment} is empty')
+            logging.info(f'{glidersuffix.upper()} (flight) file for {segment} is empty')
     except FileNotFoundError:
         dbd = None
-        logging.info(f'DBD (flight) file not available for {segment}')
+        logging.info(f'{glidersuffix.upper()} (flight) file not available for {segment}')
 
     # check for data points before proceeding to generating files
     if np.logical_and(ebd is None, dbd is None):
@@ -938,6 +938,14 @@ def raw_segment_to_timeseries(
     except TypeError:
         pass
     
+    # make filename ending based on the files being merged
+    if dbd is None:  # flight is missing
+        file_ending = f'{scisuffix}.nc'
+    elif ebd is None:  # science is missing
+        file_ending = f'{glidersuffix}.nc'
+    else:
+        file_ending = f'{glidersuffix[0]}{scisuffix[0]}bd.nc'
+
     # build a new data set based on info in `deployment.`
     # We will use ebd.m_present_time as the interpolant if the
     # variable is in dbd.
@@ -1034,11 +1042,15 @@ def raw_segment_to_timeseries(
     # end = ds['time'].values[-1]
     start = np.nanmin(ds.time.values).astype('timedelta64[s]') + np.datetime64('1970-01-01T00:00:00').astype('datetime64[ns]')
     end = np.nanmax(ds.time.values).astype('timedelta64[s]') + np.datetime64('1970-01-01T00:00:00').astype('datetime64[ns]')
-
+    startstr = datetime.utcfromtimestamp(start.astype('datetime64[s]').astype(int)).strftime('%Y%m%dT%H%M')
+    endstr = datetime.utcfromtimestamp(end.astype('datetime64[s]').astype(int)).strftime('%Y%m%dT%H%M')
+    
     ds.attrs['deployment_start'] = str(start)
     ds.attrs['deployment_end'] = str(end)
     _log.debug(ds.depth.values[:100])
     _log.debug(ds.depth.values[2000:2100])
+
+    # index profiles
     ds = utils.get_profiles_new(
         ds, filt_time=profile_filt_time, profile_min_time=profile_min_time
     )
@@ -1055,7 +1067,8 @@ def raw_segment_to_timeseries(
     except:
         pass
     # outname = outdir + '/' + ds.attrs['deployment_name'] + '.nc'
-    outname = os.path.join(outdir, segment + '.nc')
+    filename = f'{metadata["glider_name"]}_{startstr}_{endstr}_{segment}_{file_ending}'
+    outname = os.path.join(outdir, filename)
     #_log.info('writing %s', outname)
     logging.info(f'Writing {outname}')
     ds.to_netcdf(
@@ -1065,7 +1078,8 @@ def raw_segment_to_timeseries(
         id0 = ds.attrs['deployment_name']
     
     # for testing
-    outcsv = os.path.join(outdir, segment + '.csv')
+    filename = filename.replace('.nc', '.csv')
+    outcsv = os.path.join(outdir, filename)
     ds.to_dataframe().to_csv(outcsv)
 
     return outname
