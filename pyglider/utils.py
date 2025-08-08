@@ -273,6 +273,10 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
                 profile[ins] = np.nanmean(ds.time.values[ins])  # profile[ins] = pronum
                 direction[ins] = +1
                 pronum += 1
+            else:  # glider is hovering
+                profile[ins] = 0
+                direction[ins] = 0
+            
             nmin = np.where(mins > maxs[nmax])[0]
             if len(nmin) >= 1:
                 nmin = nmin[0]
@@ -289,6 +293,9 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
                 profile[ins] = np.nanmean(ds.time.values[ins])  # profile[ins] = pronum
                 direction[ins] = -1
                 pronum += 1
+            else:  # glider is hovering
+                profile[ins] = 0
+                direction[ins] = 0
 
         # added by Lori
         # if the unique profile id is 0 (no profiles were indexed), make sure everything equals zero (remove nans)
