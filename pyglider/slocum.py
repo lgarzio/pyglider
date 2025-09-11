@@ -904,7 +904,7 @@ def raw_segment_to_timeseries(
 
     try:
         ebd = xr.open_dataset(ebdn, decode_times=False)
-        if len(ebd['_ind']) == 0:
+        if len(ebd['_ind']) <= 1:
             ebd = None
             logging.info(f'{scisuffix.upper()} (science) file for {segment} is empty')
     except FileNotFoundError:
@@ -912,7 +912,7 @@ def raw_segment_to_timeseries(
         logging.info(f'{scisuffix.upper()} (science) file not available for {segment}')
     try:
         dbd = xr.open_dataset(dbdn, decode_times=False)
-        if len(dbd['_ind']) == 0:
+        if len(dbd['_ind']) <= 1:
             dbd = None
             logging.info(f'{glidersuffix.upper()} (flight) file for {segment} is empty')
     except FileNotFoundError:
@@ -956,6 +956,7 @@ def raw_segment_to_timeseries(
         ds[name] = (('time'), ebd[name].values, attr)  # get times from science file, if it exists
     except TypeError:
         ds[name] = (('time'), dbd[name].values, attr)
+
     for name in thenames:
         _log.info('working on %s', name)
         if 'method' in ncvar[name].keys():
