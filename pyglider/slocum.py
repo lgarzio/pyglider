@@ -888,10 +888,10 @@ def raw_segment_to_timeseries(
     # if len(ebd.time) <= 2:
     #     raise RuntimeError('Science file has no data')
 
-    if outdir.split('/')[-1] == 'delayed':
+    if outdir.split('/')[-2] == 'delayed':
         scisuffix = 'ebd'
         glidersuffix = 'dbd'
-    elif outdir.split('/')[-1] == 'rt':
+    elif outdir.split('/')[-2] == 'rt':
         scisuffix = 'tbd'
         glidersuffix = 'sbd'
     else:
@@ -980,7 +980,7 @@ def raw_segment_to_timeseries(
                 val = convert(dbd[sensorname])
                 val = _dbd2ebd(dbd, ds, val)
                 ncvar['method'] = 'linear fill'
-        except AttributeError:  # if ebd isn't available, get the variables from the dbd
+        except (AttributeError, KeyError):  # if ebd isn't available, get the variables from the dbd
             _log.debug('DBD sensorname %s', sensorname)
             try:
                 val = convert(dbd[sensorname])
