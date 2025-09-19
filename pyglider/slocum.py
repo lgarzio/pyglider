@@ -858,22 +858,21 @@ def raw_segment_to_timeseries(
         logging object to use for logging messages.
     segment : string
         The segment ID
-    Returns
-    -------
-    outname : string
-        name of the new merged netcdf file.
     """
 
     deployment = utils._get_deployment(deploymentyaml)
     metadata = deployment['metadata']
     ncvar = deployment['netcdf_variables']
-    device_data = deployment['glider_devices']
+    # device_data = deployment['glider_devices']
+    device_data = dict()
     thenames = list(ncvar.keys())
     thenames.remove('time')
 
     # id = metadata['glider_name'] + metadata['glider_serial']
 
     id0 = None
+    ds = None
+    filename = None
 
     # ebdn = indir + '/' + id + 'rawebd.nc'
     # dbdn = indir + '/' + id + 'rawdbd.nc'
@@ -896,7 +895,7 @@ def raw_segment_to_timeseries(
         glidersuffix = 'sbd'
     else:
         logging.error(f'Invalid mode: {outdir.split("/")[-1]} in {outdir}. Must be "delayed" or "rt".')
-        return
+        return ds, filename
     ebdn = os.path.join(indir, segment + f'.{scisuffix}.nc')  # science
     dbdn = os.path.join(indir, segment + f'.{glidersuffix}.nc')  # flight
 
@@ -922,15 +921,15 @@ def raw_segment_to_timeseries(
     # check for data points before proceeding to generating files
     if np.logical_and(ebd is None, dbd is None):
         logging.info(f'No data available for {segment}, skipping file creation')
-        return
+        return ds, filename
     if dbd is None:
         logging.info(f'Flight data not available for segment {segment}, skipping file')
-        return
+        return ds, filename
 
     try:
         if np.logical_and(ebd is None, len(dbd['_ind']) < 2):
             logging.info(f'Only {len(dbd['_ind'])} data points for segment {segment}, skipping file')
-            return
+            return ds, filename
     except TypeError:
         pass
     
@@ -1003,7 +1002,9 @@ def raw_segment_to_timeseries(
                 dd = dd[~np.isnan(dd)]
                 if len(dd) == 0:  # exit if there are no GPS hits and don't write the .nc file
                     logging.info(f'No GPS hits for segment {segment}, skipping file: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
-                    return
+                    ds = None
+                    filename = None
+                    return ds, filename
                 logging.info(f'Single GPS hit for segment {segment} ({name}), repeating coordinates instead of interpolating: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
                 val[:] = dd.values
                 
@@ -1021,7 +1022,9 @@ def raw_segment_to_timeseries(
     # don't print the file if there is <2 data points
     if len(ds.time) < 2:
         logging.info(f'Only {len(ds.time)} data point for segment {segment}, skipping file')
-        return
+        ds = None
+        filename = None
+        return ds, filename
     ds = utils.get_glider_depth(ds)
     ds = utils.get_distance_over_ground(ds)
 
@@ -1042,8 +1045,8 @@ def raw_segment_to_timeseries(
     startstr = datetime.utcfromtimestamp(start.astype('datetime64[s]').astype(int)).strftime('%Y%m%dT%H%M')
     endstr = datetime.utcfromtimestamp(end.astype('datetime64[s]').astype(int)).strftime('%Y%m%dT%H%M')
     
-    ds.attrs['deployment_start'] = str(start)
-    ds.attrs['deployment_end'] = str(end)
+    # ds.attrs['deployment_start'] = str(start)
+    # ds.attrs['deployment_end'] = str(end)
     _log.debug(ds.depth.values[:100])
     _log.debug(ds.depth.values[2000:2100])
 
@@ -1059,27 +1062,9 @@ def raw_segment_to_timeseries(
         ds.time.values.astype('timedelta64[s]') + np.datetime64('1970-01-01T00:00:00')
     ).astype('datetime64[ns]')
 
-    try:
-        os.mkdir(outdir)
-    except:
-        pass
-    # outname = outdir + '/' + ds.attrs['deployment_name'] + '.nc'
     filename = f'{metadata["glider_name"]}_{startstr}_{endstr}_{segment}_{file_ending}'
-    outname = os.path.join(outdir, filename)
-    #_log.info('writing %s', outname)
-    logging.info(f'Writing {outname}')
-    ds.to_netcdf(
-        outname, 'w', encoding={'time': {'units': 'seconds since 1970-01-01T00:00:00Z'}}
-    )
-    if id0 is None:
-        id0 = ds.attrs['deployment_name']
-    
-    # for testing
-    filename = filename.replace('.nc', '.csv')
-    outcsv = os.path.join(outdir, filename)
-    ds.to_dataframe().to_csv(outcsv)
 
-    return outname
+    return ds, filename
 
 
 def binary_to_timeseries(
