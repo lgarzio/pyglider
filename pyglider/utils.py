@@ -593,7 +593,7 @@ def fill_metadata(ds, metadata, sensor_data):
     ds : `xarray.Dataset`
         Dataset with attributes filled out.
 
-
+    * Modified by Lori Garzio 5/19/2025 - don't write over existing attributes
     """
     good = ~np.isnan(ds.latitude.values + ds.longitude.values)
     if np.any(good):
@@ -607,30 +607,30 @@ def fill_metadata(ds, metadata, sensor_data):
         ds.attrs['geospatial_lon_max'] = np.nan
         ds.attrs['geospatial_lon_min'] = np.nan
 
-    ds.attrs['geospatial_lat_units'] = 'degrees_north'
-    ds.attrs['geospatial_lon_units'] = 'degrees_east'
+    # ds.attrs['geospatial_lat_units'] = 'degrees_north'
+    # ds.attrs['geospatial_lon_units'] = 'degrees_east'
     ds.attrs['netcdf_version'] = '4.0'  # TODO get this somehow...
     ds.attrs['history'] = 'CPROOF glider toolbox version: pre-tag'
     for k, v in metadata.items():
         ds.attrs[k] = v
     ds.attrs['featureType'] = 'trajectory'
     ds.attrs['cdm_data_type'] = 'Trajectory'
-    ds.attrs['Conventions'] = 'CF-1.8'
-    ds.attrs['standard_name_vocabulary'] = 'CF STandard Name Table v72'
+    # ds.attrs['Conventions'] = 'CF-1.8'
+    # ds.attrs['standard_name_vocabulary'] = 'CF STandard Name Table v72'
     ds.attrs['date_created'] = str(np.datetime64('now')) + 'Z'
     ds.attrs['date_issued'] = str(np.datetime64('now')) + 'Z'
     ds.attrs['date_modified'] = ' '
-    ds.attrs['id'] = get_file_id(ds)
+    # ds.attrs['id'] = get_file_id(ds)
     ds.attrs['deployment_name'] = metadata['deployment_name']
-    ds.attrs['title'] = ds.attrs['id']
+    # ds.attrs['title'] = ds.attrs['id']
 
     dt = ds.time.values
     ds.attrs['time_coverage_start'] = '%s' % dt[0]
     ds.attrs['time_coverage_end'] = '%s' % dt[-1]
 
-    ds.attrs['processing_level'] = (
-        'Level 0 (L0) processed data timeseries; ' 'no corrections or data screening'
-    )
+    # ds.attrs['processing_level'] = (
+    #     'Level 0 (L0) processed data timeseries; ' 'no corrections or data screening'
+    # )
 
     for k, v in sensor_data.items():
         ds.attrs[k] = str(v)
