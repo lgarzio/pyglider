@@ -248,7 +248,11 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
             mins = np.concatenate(([0], mins))
         if mins[-1] < maxs[-1]:
             #mins = np.concatenate((mins, good[[-1]]))
-            mins = np.concatenate((mins, [len(ds.time)]))  # extend to the end of the time series, rather than the last valid pressure reading
+            if good[-1] + 4 > len(ds.time):
+                endmin = len(ds.time)
+            else:
+                endmin = good[-1] + 4
+            mins = np.concatenate((mins, [endmin]))  # extend to the end of the time series, rather than the last valid pressure reading + 4
 
         _log.debug(f'mins: {len(mins)} {mins} , maxs: {len(maxs)} {maxs}')
 
@@ -344,7 +348,7 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
             ]
         )
     
-    ds['profile_index'] = (('time'), profile, attrs)
+    ds['profile_id'] = (('time'), profile, attrs)
 
     attrs = collections.OrderedDict(
         [
