@@ -226,6 +226,7 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
         min_nsamples = int(profile_min_time / dt)
         _log.info('Filt Len  %d, dt %f, min_n %d', filt_length, dt, min_nsamples)
         if filt_length > 1:
+            # performs a moving average smoothing
             p = np.convolve(
                 ds.pressure.values[good], np.ones(filt_length) / filt_length, 'same'
             )
@@ -233,6 +234,9 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
             p = ds.pressure.values[good]
         decim = int(filt_length / 3)
         if decim < 2:
+        if len(p) < 200:  # if there are <100 data points, don't decimate
+            decim = 1
+        elif decim < 2:
             decim = 2
         # why?  because argrelextrema doesn't like repeated values, so smooth
         # then decimate to get fewer values:
@@ -249,10 +253,10 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
         if mins[-1] < maxs[-1]:
             #mins = np.concatenate((mins, good[[-1]]))
             if good[-1] + 4 > len(ds.time):
-                endmin = len(ds.time)
+                endmin = len(ds.time)  # extend to the end of the time series if it is less than last valid pressure reading + 4
             else:
-                endmin = good[-1] + 4
-            mins = np.concatenate((mins, [endmin]))  # extend to the end of the time series, rather than the last valid pressure reading + 4
+                endmin = good[-1] + 4  # extend to the last valid pressure reading + 4
+            mins = np.concatenate((mins, [endmin]))
 
         _log.debug(f'mins: {len(mins)} {mins} , maxs: {len(maxs)} {maxs}')
 
