@@ -1057,7 +1057,7 @@ def raw_segment_to_timeseries(
     _log.debug(ds.depth.values[:100])
     _log.debug(ds.depth.values[2000:2100])
 
-    # Lori: now convert times
+    # Lori edit: now convert times
     ds['time'] = (
         ds.time.values.astype('timedelta64[s]') + np.datetime64('1970-01-01T00:00:00')
     ).astype('datetime64[ns]')
