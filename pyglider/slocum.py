@@ -936,10 +936,13 @@ def raw_segment_to_timeseries(
     # make filename ending based on the files being merged
     if dbd is None:  # flight is missing
         file_ending = f'{scisuffix}.nc'
+        source_file = f'{ebd.attrs['full_filename']}({ebd.attrs['the8x3_filename']})'
     elif ebd is None:  # science is missing
         file_ending = f'{glidersuffix}.nc'
+        source_file = f'{dbd.attrs['full_filename']}({dbd.attrs['the8x3_filename']})'
     else:
         file_ending = f'{glidersuffix[0]}{scisuffix[0]}bd.nc'
+        source_file = f'{ebd.attrs['full_filename']}({ebd.attrs['the8x3_filename']})'
 
     # build a new data set based on info in `deployment.`
     # We will use ebd.m_present_time as the interpolant if the
@@ -1064,7 +1067,7 @@ def raw_segment_to_timeseries(
 
     filename = f'{metadata["glider_name"]}_{startstr}_{endstr}_{segment}_{file_ending}'
 
-    return ds, filename
+    return ds, filename, source_file
 
 
 def binary_to_timeseries(
