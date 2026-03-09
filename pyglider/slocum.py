@@ -873,6 +873,7 @@ def raw_segment_to_timeseries(
     id0 = None
     ds = None
     filename = None
+    source_file = None
 
     # ebdn = indir + '/' + id + 'rawebd.nc'
     # dbdn = indir + '/' + id + 'rawdbd.nc'
@@ -895,7 +896,7 @@ def raw_segment_to_timeseries(
         glidersuffix = 'sbd'
     else:
         logging.error(f'Invalid mode: {outdir.split("/")[-1]} in {outdir}. Must be "delayed" or "rt".')
-        return ds, filename
+        return ds, filename, source_file
     ebdn = os.path.join(indir, segment + f'.{scisuffix}.nc')  # science
     dbdn = os.path.join(indir, segment + f'.{glidersuffix}.nc')  # flight
 
@@ -921,15 +922,15 @@ def raw_segment_to_timeseries(
     # check for data points before proceeding to generating files
     if np.logical_and(ebd is None, dbd is None):
         logging.info(f'No data available for {segment}, skipping file creation')
-        return ds, filename
+        return ds, filename, source_file
     if dbd is None:
         logging.info(f'Flight data not available for segment {segment}, skipping file')
-        return ds, filename
+        return ds, filename, source_file
 
     try:
         if np.logical_and(ebd is None, len(dbd['_ind']) < 2):
             logging.info(f'Only {len(dbd['_ind'])} data points for segment {segment}, skipping file')
-            return ds, filename
+            return ds, filename, source_file
     except TypeError:
         pass
     
@@ -1007,7 +1008,7 @@ def raw_segment_to_timeseries(
                     logging.info(f'No GPS hits for segment {segment}, skipping file: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
                     ds = None
                     filename = None
-                    return ds, filename
+                    return ds, filename, source_file
                 logging.info(f'Single GPS hit for segment {segment} ({name}), repeating coordinates instead of interpolating: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
                 val[:] = dd.values
                 
@@ -1027,7 +1028,7 @@ def raw_segment_to_timeseries(
         logging.info(f'Only {len(ds.time)} data point for segment {segment}, skipping file')
         ds = None
         filename = None
-        return ds, filename
+        return ds, filename, source_file
     ds = utils.get_glider_depth(ds)
     # ds = utils.get_distance_over_ground(ds)
 
