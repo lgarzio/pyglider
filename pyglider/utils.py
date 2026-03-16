@@ -233,7 +233,7 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
         else:
             p = ds.pressure.values[good]
         decim = int(filt_length / 3)
-        if len(p) < 200:  # if there are <100 data points, don't decimate
+        if len(p) < 150:  # if there are <150 data points, don't decimate
             decim = 1
         elif decim < 2:
             decim = 2
