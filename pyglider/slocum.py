@@ -1029,7 +1029,7 @@ def raw_segment_to_timeseries(
         ds = None
         filename = None
         return ds, filename, source_file
-    ds = utils.get_glider_depth(ds)
+    ds = utils.get_glider_depth_new(ds)
     # ds = utils.get_distance_over_ground(ds)
 
     ds = utils.get_derived_eos_raw(ds)
