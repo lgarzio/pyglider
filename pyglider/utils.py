@@ -321,80 +321,98 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
         mins = argrelextrema(pp, np.less)[0]
         mins = good[mins * decim]
         maxs = good[maxs * decim]
-        if np.logical_and(len(mins) == 0, len(maxs) > 0):
-            # if there are no minima, but there are maxima, assume the profile starts at index=0
-            mins = np.concatenate(([0], mins))
-        if mins[0] > maxs[0]:
-            mins = np.concatenate(([0], mins))
-        if mins[-1] < maxs[-1]:
-            #mins = np.concatenate((mins, good[[-1]]))
-            if good[-1] + 4 > len(ds.time):
-                endmin = len(ds.time)  # extend to the end of the time series if it is less than last valid pressure reading + 4
-            else:
-                endmin = good[-1] + 4  # extend to the last valid pressure reading + 4
-            mins = np.concatenate((mins, [endmin]))
 
-        _log.debug(f'mins: {len(mins)} {mins} , maxs: {len(maxs)} {maxs}')
-
-        pronum = 1
-        p = ds.depth
-        nmin = 0
-        nmax = 0
-        while (nmin < len(mins)) and (nmax < len(maxs)):
-            nmax = np.where(maxs > mins[nmin])[0]
-            if len(nmax) >= 1:
-                nmax = nmax[0]
+        if np.logical_and(len(maxs) == 0, len(mins) == 0):
+            # no mins or maxs found, see if the values are all increasing or all decreasing
+            if np.all(np.diff(pp) >= 0):  # values are increasing
+                #mins = np.concatenate(([0], mins))
+                #maxs = np.concatenate((maxs, [good[-1]]))
+                profile.fill(1)
+                direction.fill(1)
+            elif np.all(np.diff(pp) <= 0):  # values are decreasing
+                profile.fill(1)
+                direction.fill(-1)
             else:
-                break
-            _log.debug(nmax)
-            ins = range(int(mins[nmin]), int(maxs[nmax] + 1))
-            _log.debug(f'{pronum}, {ins}, {len(p)}, {mins[nmin]}, {maxs[nmax]}')
-            _log.debug(f'Down, {ins}, {p[ins[0]].values},{p[ins[-1]].values}')
-            if (len(ins) > min_nsamples) and (
-                np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
-            ):
-                # downcast
-                profile[ins] = pronum
-                direction[ins] = +1
-                pronum += 1
-            
-                # find depths < 0.1 and assign those profile ID 0
-                # these are downcasts so find the last instance and set everything before that to zero
-                if np.sum(p[ins] < 0.1) > 0:
-                    ins = range(ins[0], ins[0] + np.max(np.where(p[ins] < 0.1)[0]))
+                # if there are no minima or maxima, but the values are not all increasing or decreasing, assign everything zero
+                profile.fill(0)
+                direction.fill(0)
+
+        else:
+            if np.logical_and(len(mins) == 0, len(maxs) > 0):
+                # if there are no minima, but there are maxima, assume the profile starts at index=0
+                mins = np.concatenate(([0], mins))
+            if mins[0] > maxs[0]:
+                mins = np.concatenate(([0], mins))
+
+            if mins[-1] < maxs[-1]:
+                #mins = np.concatenate((mins, good[[-1]]))
+                if good[-1] + 4 > len(ds.time):
+                    endmin = len(ds.time)  # extend to the end of the time series if it is less than last valid pressure reading + 4
+                else:
+                    endmin = good[-1] + 4  # extend to the last valid pressure reading + 4
+                mins = np.concatenate((mins, [endmin]))
+
+            _log.debug(f'mins: {len(mins)} {mins} , maxs: {len(maxs)} {maxs}')
+
+            pronum = 1
+            p = ds.depth
+            nmin = 0
+            nmax = 0
+            while (nmin < len(mins)) and (nmax < len(maxs)):
+                nmax = np.where(maxs > mins[nmin])[0]
+                if len(nmax) >= 1:
+                    nmax = nmax[0]
+                else:
+                    break
+                _log.debug(nmax)
+                ins = range(int(mins[nmin]), int(maxs[nmax] + 1))
+                _log.debug(f'{pronum}, {ins}, {len(p)}, {mins[nmin]}, {maxs[nmax]}')
+                _log.debug(f'Down, {ins}, {p[ins[0]].values},{p[ins[-1]].values}')
+                if (len(ins) > min_nsamples) and (
+                    np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
+                ):
+                    # downcast
+                    profile[ins] = pronum
+                    direction[ins] = +1
+                    pronum += 1
+                
+                    # find depths < 0.1 and assign those profile ID 0
+                    # these are downcasts so find the last instance and set everything before that to zero
+                    if np.sum(p[ins] < 0.1) > 0:
+                        ins = range(ins[0], ins[0] + np.max(np.where(p[ins] < 0.1)[0]))
+                        profile[ins] = 0
+                        direction[ins] = 0
+
+                else:  # glider is hovering
                     profile[ins] = 0
                     direction[ins] = 0
+                
+                nmin = np.where(mins > maxs[nmax])[0]
+                if len(nmin) >= 1:
+                    nmin = nmin[0]
+                else:
+                    break
+                ins = range(maxs[nmax], mins[nmin])
+                _log.debug(f'{pronum}, {ins}, {len(p)}, {mins[nmin]}, {maxs[nmax]}')
+                _log.debug(f'Up, {ins}, {p[ins[0]].values}, {p[ins[-1]].values}')
+                if (len(ins) > min_nsamples) and (
+                    np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
+                ):
+                    # upcast
+                    profile[ins] = pronum
+                    direction[ins] = -1
+                    pronum += 1
 
-            else:  # glider is hovering
-                profile[ins] = 0
-                direction[ins] = 0
-            
-            nmin = np.where(mins > maxs[nmax])[0]
-            if len(nmin) >= 1:
-                nmin = nmin[0]
-            else:
-                break
-            ins = range(maxs[nmax], mins[nmin])
-            _log.debug(f'{pronum}, {ins}, {len(p)}, {mins[nmin]}, {maxs[nmax]}')
-            _log.debug(f'Up, {ins}, {p[ins[0]].values}, {p[ins[-1]].values}')
-            if (len(ins) > min_nsamples) and (
-                np.nanmax(p[ins]) - np.nanmin(p[ins]) > min_dp
-            ):
-                # upcast
-                profile[ins] = pronum
-                direction[ins] = -1
-                pronum += 1
+                    # find depths < 0.1 and assign those profile ID 0
+                    # these are upcasts so find the first instance and set everything after that to zero
+                    if np.sum(p[ins] < 0.1) > 0:
+                        ins = range(ins[0] + np.min(np.where(p[ins] < 0.1)[0]), ins[-1] + 1)
+                        profile[ins] = 0
+                        direction[ins] = 0
 
-                # find depths < 0.1 and assign those profile ID 0
-                # these are upcasts so find the first instance and set everything after that to zero
-                if np.sum(p[ins] < 0.1) > 0:
-                    ins = range(ins[0] + np.min(np.where(p[ins] < 0.1)[0]), ins[-1] + 1)
+                else:  # glider is hovering
                     profile[ins] = 0
                     direction[ins] = 0
-
-            else:  # glider is hovering
-                profile[ins] = 0
-                direction[ins] = 0
 
         # # added by Lori
         # # if the unique profile id is 0 (no profiles were indexed), make sure everything equals zero (remove nans)
