@@ -336,7 +336,10 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
                 # if there are no minima or maxima, but the values are not all increasing or decreasing, assign everything zero
                 profile.fill(0)
                 direction.fill(0)
-
+        elif np.logical_and(len(mins) > 0, len(maxs) == 0):
+                # if there are minima but no maxima, assign everything zero (can't find profiles)
+                profile.fill(0)
+                direction.fill(0)
         else:
             if np.logical_and(len(mins) == 0, len(maxs) > 0):
                 # if there are no minima, but there are maxima, assume the profile starts at index=0
