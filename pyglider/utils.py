@@ -263,11 +263,14 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
         )
         return ds
 
+    # set anything less than 1m to nan so it's not included in the profile-finding
+    check_depth = np.where(ds['depth'].values <= 1, np.nan, ds['depth'].values)
+
     profile = ds.depth.values * 0
     direction = ds.depth.values * 0
     pronum = 1
 
-    good = np.where(np.isfinite(ds.depth))[0]
+    good = np.where(np.isfinite(check_depth))[0]
 
     # if depth is all nan or the depth change is < min_dp, profile id is zero
     if np.logical_or(len(good) == 0, np.nanmax(ds.depth.values) - np.nanmin(ds.depth.values) < min_dp):
