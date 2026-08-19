@@ -787,6 +787,19 @@ def nmea2deg(nmea):
     return deg
 
 
+def nmea_to_decimal_degrees(nmea_values):
+    # added by Lori
+    # convert NMEA lat/lon format (DDMM.MMMM) to decimal degrees (DD.DDDDDD)
+    magnitude = np.abs(nmea_values)
+    sign = np.sign(nmea_values)
+    degrees = np.floor(magnitude / 100)
+    minutes = magnitude - (degrees * 100)
+    
+    # Convert to decimal degrees
+    decimal_degrees = sign * (degrees + (minutes / 60))
+    return decimal_degrees
+
+
 def oxygen_concentration_correction(ds, ncvar):
     """
     Correct oxygen signal for salinity signal
