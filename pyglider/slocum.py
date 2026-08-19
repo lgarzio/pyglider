@@ -958,7 +958,7 @@ def raw_segment_to_timeseries(
     try:
         ds[name] = (('time'), ebd[name].values, attr)  # get times from science file, if it exists
     except TypeError:
-        ds[name] = (('time'), dbd[name].values, attr)
+        ds[name] = (('time'), np.unique(dbd[name].values), attr)
 
     for name in thenames:
         _log.info('working on %s', name)
@@ -981,19 +981,22 @@ def raw_segment_to_timeseries(
             else:
                 _log.debug('DBD sensorname %s', sensorname)
                 val = convert(dbd[sensorname])
+                if name in ['latitude', 'longitude']:
+                    val = utils.nmea2deg(val)
                 val = _dbd2ebd(dbd, ds, val)
                 ncvar['method'] = 'linear fill'
         except (AttributeError, KeyError):  # if ebd isn't available, get the variables from the dbd
             _log.debug('DBD sensorname %s', sensorname)
             try:
                 val = convert(dbd[sensorname])
+                if name in ['latitude', 'longitude']:
+                    val = utils.nmea2deg(val)
                 val = _dbd2ebd(dbd, ds, val)
                 ncvar['method'] = 'linear fill'
             except KeyError:  # fill the array with nans if the variable isn't available
                 _log.debug('DBD sensorname %s not available in the file', sensorname)
-                val = convert(dbd['time'])
-                val = _dbd2ebd(dbd, ds, val)
-                val[:] = np.nan
+                val = ds['time'] * np.nan
+                #val = _dbd2ebd(dbd, ds, val)
        
         # repeat lat/lon if there is only one GPS hit in the trajectory file
         if name in ['latitude', 'longitude']:
