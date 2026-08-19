@@ -982,7 +982,7 @@ def raw_segment_to_timeseries(
                 _log.debug('DBD sensorname %s', sensorname)
                 val = convert(dbd[sensorname])
                 if name in ['latitude', 'longitude']:
-                    val = utils.nmea2deg(val)
+                    val = utils.nmea_to_decimal_degrees(val)
                 val = _dbd2ebd(dbd, ds, val)
                 ncvar['method'] = 'linear fill'
         except (AttributeError, KeyError):  # if ebd isn't available, get the variables from the dbd
@@ -990,7 +990,7 @@ def raw_segment_to_timeseries(
             try:
                 val = convert(dbd[sensorname])
                 if name in ['latitude', 'longitude']:
-                    val = utils.nmea2deg(val)
+                    val = utils.nmea_to_decimal_degrees(val)
                 val = _dbd2ebd(dbd, ds, val)
                 ncvar['method'] = 'linear fill'
             except KeyError:  # fill the array with nans if the variable isn't available
