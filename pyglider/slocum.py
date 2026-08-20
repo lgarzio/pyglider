@@ -982,7 +982,7 @@ def raw_segment_to_timeseries(
                 _log.debug('DBD sensorname %s', sensorname)
                 val = convert(dbd[sensorname])
                 if name in ['latitude', 'longitude']:
-                    val = utils.nmea_to_decimal_degrees(val)
+                    val = utils.nmea2deg(val)
                 val = _dbd2ebd(dbd, ds, val)
                 ncvar['method'] = 'linear fill'
         except (AttributeError, KeyError):  # if ebd isn't available, get the variables from the dbd
@@ -990,7 +990,7 @@ def raw_segment_to_timeseries(
             try:
                 val = convert(dbd[sensorname])
                 if name in ['latitude', 'longitude']:
-                    val = utils.nmea_to_decimal_degrees(val)
+                    val = utils.nmea2deg(val)
                 val = _dbd2ebd(dbd, ds, val)
                 ncvar['method'] = 'linear fill'
             except KeyError:  # fill the array with nans if the variable isn't available
@@ -1007,7 +1007,7 @@ def raw_segment_to_timeseries(
                 
                 dd = convert(dbd[sensorname])
                 dd = dd[~np.isnan(dd)]
-                dd = utils.nmea_to_decimal_degrees(dd)
+                dd = utils.nmea2deg(dd)
                 if len(dd) == 0:  # exit if there are no GPS hits and don't write the .nc file
                     logging.info(f'No GPS hits for segment {segment}, skipping file: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
                     ds = None
