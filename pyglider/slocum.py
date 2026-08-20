@@ -1007,6 +1007,7 @@ def raw_segment_to_timeseries(
                 
                 dd = convert(dbd[sensorname])
                 dd = dd[~np.isnan(dd)]
+                dd = utils.nmea_to_decimal_degrees(dd)
                 if len(dd) == 0:  # exit if there are no GPS hits and don't write the .nc file
                     logging.info(f'No GPS hits for segment {segment}, skipping file: {t0.strftime('%Y-%m-%d %H:%M:%S')} to {t1.strftime('%Y-%m-%d %H:%M:%S')}, ({diff} minutes, {len(val)} data points)')
                     ds = None
