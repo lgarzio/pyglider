@@ -960,6 +960,12 @@ def raw_segment_to_timeseries(
     except TypeError:
         ds[name] = (('time'), np.unique(dbd[name].values), attr)
 
+    if len(ds.time) < 2:
+        logging.info(f'Only {len(ds.time)} data points for segment {segment}, skipping file')
+        ds = None
+        filename = None
+        return ds, filename, source_file
+
     for name in thenames:
         _log.info('working on %s', name)
         if 'method' in ncvar[name].keys():
