@@ -391,31 +391,45 @@ def dbd_to_dict(dinkum_file, cachedir, keys=None):
     proctimestart = time.time()
     ndata = 0
     while frameCheck == 'd':
-        for i in range(int(meta['sensors_per_cycle'])):
-            updatedCode[i] = binaryData.read('bin:2')
-        # burn off any remaining bits to get to the first full bit.
-        binaryData.bytealign()
-        for i, code in enumerate(updatedCode):
-            if code == '00':  # No new value
-                currentValues[i] = np.nan
-            elif code == '01':  # Same value as before.
-                continue
-            elif code == '10':  # New value.
-                if int(activeSensorList[i]['bits']) in [4, 8]:
-                    currentValues[i] = binaryData.read(
-                        f'float{endian}:' + str(int(activeSensorList[i]['bits']) * 8)
-                    )
-                elif int(activeSensorList[i]['bits']) in [1, 2]:
-                    currentValues[i] = binaryData.read(
-                        f'uint{endian}:' + str(int(activeSensorList[i]['bits']) * 8)
-                    )
+        # beginning of modification by Lori Garzio 5/19/2025
+        # without this try statement, the code will fail if there is a ReadError, 
+        # which can happen if the binary file is incomplete. This try statement 
+        # allows the code to continue processing the rest of the file and log a 
+        # warning instead of throwing out the entire file.
+        try:
+            for i in range(int(meta['sensors_per_cycle'])):
+                updatedCode[i] = binaryData.read('bin:2')
+            # burn off any remaining bits to get to the first full bit.
+            binaryData.bytealign()
+            for i, code in enumerate(updatedCode):
+                if code == '00':  # No new value
+                    currentValues[i] = np.nan
+                elif code == '01':  # Same value as before.
+                    continue
+                elif code == '10':  # New value.
+                    if int(activeSensorList[i]['bits']) in [4, 8]:
+                        currentValues[i] = binaryData.read(
+                            f'float{endian}:' + str(int(activeSensorList[i]['bits']) * 8)
+                        )
+                    elif int(activeSensorList[i]['bits']) in [1, 2]:
+                        currentValues[i] = binaryData.read(
+                            f'uint{endian}:' + str(int(activeSensorList[i]['bits']) * 8)
+                        )
+                    else:
+                        raise ValueError('Bad bits')
                 else:
-                    raise ValueError('Bad bits')
-            else:
-                raise ValueError(
-                    ('Unrecognizable code in data cycle. ', 'Parsing failed')
-                )
+                    raise ValueError(
+                        ('Unrecognizable code in data cycle. ', 'Parsing failed')
+                    )
+        except bitstring.ReadError:  # this discards the incomplete trailing frame
+            _log.warning('Incomplete final data frame in %s; discarding it', dinkum_file)
+            data = data[:ndata]
+            break
+
+        # end of modifications by Lori Garzio 5/19/2025
+        
         data[ndata] = currentValues
+        ndata += 1
         binaryData.bytealign()
 
         # We've arrived at the next line.
@@ -429,7 +443,6 @@ def dbd_to_dict(dinkum_file, cachedir, keys=None):
             d = 'X'
         if d == 'd':
             frameCheck = binaryData.read('bytes:1').decode('utf-8')
-            ndata += 1
             if ndata % DINKUMCHUNKSIZE == 0:
                 # need to allocate more data!
                 data = np.concatenate(
