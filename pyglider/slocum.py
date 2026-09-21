@@ -1069,8 +1069,8 @@ def raw_segment_to_timeseries(
     # end = ds['time'].values[-1]
     start = np.nanmin(ds.time.values).astype('timedelta64[s]') + np.datetime64('1970-01-01T00:00:00').astype('datetime64[ns]')
     end = np.nanmax(ds.time.values).astype('timedelta64[s]') + np.datetime64('1970-01-01T00:00:00').astype('datetime64[ns]')
-    startstr = datetime.utcfromtimestamp(start.astype('datetime64[s]').astype(int)).strftime('%Y%m%dT%H%M')
-    endstr = datetime.utcfromtimestamp(end.astype('datetime64[s]').astype(int)).strftime('%Y%m%dT%H%M')
+    #startstr = datetime.utcfromtimestamp(start.astype('datetime64[s]').astype(int)).strftime('%Y%m%dT%H%M')
+    #endstr = datetime.utcfromtimestamp(end.astype('datetime64[s]').astype(int)).strftime('%Y%m%dT%H%M')
     
     # ds.attrs['deployment_start'] = str(start)
     # ds.attrs['deployment_end'] = str(end)
@@ -1089,7 +1089,8 @@ def raw_segment_to_timeseries(
         ds.time.values.astype('timedelta64[s]') + np.datetime64('1970-01-01T00:00:00')
     ).astype('datetime64[ns]')
 
-    filename = f'{metadata["glider_name"]}_{startstr}_{endstr}_{segment}_{file_ending}'
+    #filename = f'{metadata["glider_name"]}_{startstr}_{endstr}_{segment}_{file_ending}'
+    filename = f'{segment}_{file_ending}'
 
     return ds, filename, source_file
 
