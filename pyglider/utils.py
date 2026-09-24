@@ -272,8 +272,8 @@ def get_profiles_new(ds, min_dp=10.0, filt_time=100, profile_min_time=300):
 
     good = np.where(np.isfinite(check_depth))[0]
 
-    # if depth is all nan or the depth change is < min_dp, profile id is zero
-    if np.logical_or(len(good) == 0, np.nanmax(ds.depth.values) - np.nanmin(ds.depth.values) < min_dp):
+    # if there are <=3 valid depth values, or the depth change is < min_dp, profile id is zero
+    if np.logical_or(len(good) <= 3, np.nanmax(ds.depth.values) - np.nanmin(ds.depth.values) < min_dp):
         profile.fill(0)
         direction.fill(0)
 
