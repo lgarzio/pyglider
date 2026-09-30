@@ -317,6 +317,10 @@ def get_profiles_new(ds, min_dp=5.0, filt_time=100, profile_min_time=300):
             decim = 1
         elif decim < 2:
             decim = 2
+
+        # also need to decimate the number of samples required to run the test based on profile_min_time
+        min_nsamples = int(min_nsamples / decim)
+
         # why?  because argrelextrema doesn't like repeated values, so smooth
         # then decimate to get fewer values:
         pp = p[::decim]
