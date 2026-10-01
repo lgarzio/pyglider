@@ -289,6 +289,21 @@ def dbd_get_meta(filename, cachedir):
     return meta, bindatafilepos
 
 
+def _find_next_frame_tag(binary_data):
+    # added by Lori Garzio 9/30/2026 to handle incomplete binary files
+    # this function scans through the binary data to find the next frame tag ('d' or 'X') 
+    # and returns it along with the number of bytes skipped
+    skipped = 0
+    while binary_data.pos < binary_data.len:
+        tag = binary_data.read('bytes:1')
+        if tag == b'd':
+            return 'd', skipped
+        if tag == b'X':
+            return 'X', skipped
+        skipped += 1
+    return 'X', skipped
+
+
 def dbd_to_dict(dinkum_file, cachedir, keys=None):
     """
     Translate a dinkum binary file to a dictionary of data and meta values.
@@ -454,9 +469,25 @@ def dbd_to_dict(dinkum_file, cachedir, keys=None):
             data = data[:ndata]
             break
         else:
-            raise ValueError(
-                f'Parsing failed at {binaryData.bytepos}. ', f'Got {d} expected d or X'
+            # raise ValueError(
+            #     f'Parsing failed at {binaryData.bytepos}. ', f'Got {d} expected d or X'
+            # )
+            # added by Lori Garzio 9/30/2026 to handle incomplete binary files
+            # instead of just raising an error, this will scan through the binary data to find 
+            # the next frame tag ('d' or 'X')
+            bad_pos = binaryData.bytepos
+            frameCheck, skipped = _find_next_frame_tag(binaryData)
+            _log.warning(
+                'Unexpected frame tag %r at byte %d; skipped %d bytes and '
+                'resynchronized at %r',
+                d,
+                bad_pos,
+                skipped,
+                frameCheck,
             )
+            if frameCheck == 'X':
+                data = data[:ndata]
+                break
 
     proctimeend = time.time()
     _log.info(
